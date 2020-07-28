@@ -1,19 +1,13 @@
-use crate::prober::ProbeTarget;
+use crate::prober::{Configuration, ProbeTarget};
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use humantime::{parse_duration, DurationError};
 use itertools::Itertools;
 use snafu::{ResultExt, Snafu};
 use std::ffi::OsString;
-use std::time::Duration;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
     ParseDuration { source: DurationError },
-}
-
-pub struct Arguments {
-    targets: Vec<ProbeTarget>,
-    interval: Duration,
 }
 
 fn parse_targets<'v, V>(values: V) -> Vec<ProbeTarget>
@@ -30,7 +24,7 @@ where
         .collect()
 }
 
-pub fn parse_args<I, T>(args: I) -> Result<Arguments, Error>
+pub fn parse_args<I, T>(args: I) -> Result<Configuration, Error>
 where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
@@ -56,7 +50,7 @@ where
         )
         .get_matches_from(args);
 
-    Ok(Arguments {
+    Ok(Configuration {
         interval: parse_duration(matches.value_of("interval").unwrap()).context(ParseDuration)?,
         targets: matches
             .values_of("target")
@@ -67,6 +61,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn parse_first_target() {
