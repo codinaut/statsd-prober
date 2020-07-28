@@ -1,27 +1,36 @@
 use crate::prober::ProbeTarget;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use humantime::{parse_duration, DurationError};
 use itertools::Itertools;
+use snafu::{ResultExt, Snafu};
 use std::ffi::OsString;
+use std::time::Duration;
+
+#[derive(Debug, Snafu)]
+pub enum Error {
+    ParseDuration { source: DurationError },
+}
 
 pub struct Arguments {
     targets: Vec<ProbeTarget>,
+    interval: Duration,
 }
 
-fn parse_targets<V>(values: V) -> Vec<ProbeTarget>
+fn parse_targets<'v, V>(values: V) -> Vec<ProbeTarget>
 where
-    V: IntoIterator<Item = OsString>,
+    V: Iterator<Item = &'v str>,
 {
     values
         .into_iter()
         .tuples()
         .map(|(address, statsd_key)| ProbeTarget {
-            address: address.into_string().unwrap(),
-            statsd_key: statsd_key.into_string().unwrap(),
+            address: address.to_string(),
+            statsd_key: statsd_key.to_string(),
         })
         .collect()
 }
 
-pub fn parse_args<I, T>(args: I) -> Arguments
+pub fn parse_args<I, T>(args: I) -> Result<Arguments, Error>
 where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
@@ -38,14 +47,21 @@ where
                 .multiple(true)
                 .number_of_values(2),
         )
+        .arg(
+            Arg::with_name("interval")
+                .short("i")
+                .help("Probing interval")
+                .takes_value(true)
+                .default_value("1s"),
+        )
         .get_matches_from(args);
 
-    Arguments {
+    Ok(Arguments {
+        interval: parse_duration(matches.value_of("interval").unwrap()).context(ParseDuration)?,
         targets: matches
-            .args
-            .get("target")
-            .map_or(vec![], |arg| parse_targets(arg.vals.clone())),
-    }
+            .values_of("target")
+            .map_or(vec![], |values| parse_targets(values)),
+    })
 }
 
 #[cfg(test)]
@@ -54,7 +70,7 @@ mod test {
 
     #[test]
     fn parse_first_target() {
-        let arg = parse_args(&["app", "-t", "a", "b"]);
+        let arg = parse_args(&["app", "-t", "a", "b"]).unwrap();
         assert_eq!(
             arg.targets[0],
             ProbeTarget {
@@ -66,7 +82,7 @@ mod test {
 
     #[test]
     fn parse_next_target() {
-        let arg = parse_args(&["app", "-t", "a", "b", "-t", "c", "d"]);
+        let arg = parse_args(&["app", "-t", "a", "b", "-t", "c", "d"]).unwrap();
         assert_eq!(
             arg.targets[1],
             ProbeTarget {
@@ -74,5 +90,11 @@ mod test {
                 statsd_key: "d".to_string(),
             }
         )
+    }
+
+    #[test]
+    fn duration() {
+        let arg = parse_args(&["app", "-i", "500ms"]).unwrap();
+        assert_eq!(arg.interval, Duration::from_millis(500))
     }
 }
