@@ -1,9 +1,20 @@
-use crate::prober::{Configuration, ProbeTarget};
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use humantime::{parse_duration, DurationError};
 use itertools::Itertools;
 use snafu::{ResultExt, Snafu};
 use std::ffi::OsString;
+use std::time::Duration;
+
+pub struct Configuration {
+    pub interval: Duration,
+    pub targets: Vec<ProbeTarget>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ProbeTarget {
+    pub address: String,
+    pub statsd_key: String,
+}
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -63,7 +74,6 @@ mod test {
     use super::*;
     use fake::faker;
     use fake::Fake;
-    use std::time::Duration;
 
     #[test]
     fn parse_first_target() {

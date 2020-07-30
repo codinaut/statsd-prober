@@ -1,16 +1,3 @@
-use std::time::Duration;
-
-pub struct Configuration {
-    pub interval: Duration,
-    pub targets: Vec<ProbeTarget>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ProbeTarget {
-    pub address: String,
-    pub statsd_key: String,
-}
-
 fn build_payload(statsd_key: &str) -> Box<[u8]> {
     format!("{}:1|c", statsd_key)
         .into_bytes()
