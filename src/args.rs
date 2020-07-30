@@ -61,28 +61,34 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use fake::faker;
+    use fake::Fake;
     use std::time::Duration;
 
     #[test]
     fn parse_first_target() {
-        let arg = parse_args(&["app", "-t", "a", "b"]).unwrap();
+        let address = faker::lorem::en::Word().fake();
+        let statsd_key = faker::lorem::en::Word().fake();
+        let arg = parse_args(&["app", "-t", address, statsd_key]).unwrap();
         assert_eq!(
             arg.targets[0],
             ProbeTarget {
-                address: "a".to_string(),
-                statsd_key: "b".to_string(),
+                address: address.to_string(),
+                statsd_key: statsd_key.to_string(),
             }
         )
     }
 
     #[test]
     fn parse_next_target() {
-        let arg = parse_args(&["app", "-t", "a", "b", "-t", "c", "d"]).unwrap();
+        let address = faker::lorem::en::Word().fake();
+        let statsd_key = faker::lorem::en::Word().fake();
+        let arg = parse_args(&["app", "-t", "a", "b", "-t", address, statsd_key]).unwrap();
         assert_eq!(
             arg.targets[1],
             ProbeTarget {
-                address: "c".to_string(),
-                statsd_key: "d".to_string(),
+                address: address.to_string(),
+                statsd_key: statsd_key.to_string(),
             }
         )
     }
