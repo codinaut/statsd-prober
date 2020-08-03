@@ -6,9 +6,12 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.1"
+futures = "0.3.5"
 humantime = "2.0.1"
 itertools = "0.9.0"
+lazy_futuristic = "1.0.2"
 snafu = "0.6.8"
+tokio = { version = "0.2.22", features = ["full"] }
 
 [dev-dependencies]
 fake = "2.2.3"
