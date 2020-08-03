@@ -48,6 +48,7 @@ where
             Arg::with_name("target")
                 .short("t")
                 .help("Specify probe target(s)")
+                .value_names(&["host:port", "statsd-key"])
                 .takes_value(true)
                 .multiple(true)
                 .number_of_values(2),
