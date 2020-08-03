@@ -1,4 +1,5 @@
-use super::*;
+mod socket;
+
 use snafu::{ResultExt, Snafu};
 use tokio::{io, net};
 
