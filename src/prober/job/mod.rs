@@ -1,10 +1,11 @@
-mod socket;
+pub mod socket;
 
+use futures::lock::MutexGuard;
 use snafu::{ResultExt, Snafu};
 use tokio::{io, net};
 
 #[derive(Debug, Snafu)]
-enum Error {
+pub enum Error {
     LookupHost { source: io::Error },
     LookupHostEmpty,
     SendPayload { source: io::Error },
@@ -30,25 +31,16 @@ impl Job {
         }
     }
 
-    async fn send_payload(
+    async fn resolve<'a>(
         &self,
-        socket: &mut net::UdpSocket,
-        address: std::net::SocketAddr,
-    ) -> Result<(), Error> {
-        socket
-            .send_to(&self.payload, address)
-            .await
-            .context(SendPayload)?;
-        Ok(())
-    }
-
-    async fn probe(&self, socket_factory: socket::Factory) -> Result<(), Error> {
+        socket_factory: &'a socket::Factory,
+    ) -> Result<MutexGuard<'a, net::UdpSocket>, Error> {
         let mut last_socket_err = None;
 
         for address in net::lookup_host(&self.address).await.context(LookupHost)? {
             match socket_factory.get(address).await {
                 Err(e) => last_socket_err = Some(e),
-                Ok(mut socket) => return self.send_payload(&mut *socket, address).await,
+                Ok(mutex_guard) => return Ok(mutex_guard),
             }
         }
 
@@ -56,6 +48,17 @@ impl Job {
             return Err(Error::SocketFactory { source: e });
         }
         Err(Error::LookupHostEmpty)
+    }
+
+    pub async fn probe(&self, socket_factory: &socket::Factory) -> Result<(), Error> {
+        let mut socket_guard = self.resolve(&socket_factory).await?;
+        let socket = &mut *socket_guard;
+
+        socket
+            .send_to(&self.payload, &self.address)
+            .await
+            .context(SendPayload)?;
+        Ok(())
     }
 }
 
