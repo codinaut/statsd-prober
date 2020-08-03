@@ -36,7 +36,7 @@ impl Factory {
         }
 
         if address.is_ipv6() {
-            let socket = match self.ipv4_socket.get_or_set().await {
+            let socket = match self.ipv6_socket.get_or_set().await {
                 Value(value) => value,
                 Setter(setter) => {
                     let s = UdpSocket::bind("[::]:0").await.context(Bind)?;
