@@ -1,6 +1,6 @@
 pub mod socket;
 
-use futures::lock::MutexGuard;
+use futures::lock::{Mutex, MutexGuard};
 use snafu::{ResultExt, Snafu};
 use tokio::{io, net};
 
@@ -10,6 +10,7 @@ pub enum Error {
     LookupHostEmpty,
     SendPayload { source: io::Error },
     SocketFactory { source: socket::Error },
+    OngoingProbeExists,
 }
 
 fn build_payload(statsd_key: &str) -> Box<[u8]> {
@@ -21,6 +22,7 @@ fn build_payload(statsd_key: &str) -> Box<[u8]> {
 pub struct Job {
     address: String,
     payload: Box<[u8]>,
+    run_lock: Mutex<()>,
 }
 
 impl Job {
@@ -28,6 +30,7 @@ impl Job {
         Self {
             address,
             payload: build_payload(payload),
+            run_lock: Mutex::new(())
         }
     }
 
@@ -50,11 +53,7 @@ impl Job {
         Err(Error::LookupHostEmpty)
     }
 
-    pub fn address(&self) -> &str {
-        &self.address
-    }
-
-    pub async fn probe(&self, socket_factory: &socket::Factory) -> Result<(), Error> {
+    async fn probe(&self, socket_factory: &socket::Factory) -> Result<(), Error> {
         let mut socket_guard = self.resolve(&socket_factory).await?;
         let socket = &mut *socket_guard;
 
@@ -63,6 +62,18 @@ impl Job {
             .await
             .context(SendPayload)?;
         Ok(())
+    }
+
+    pub fn address(&self) -> &str {
+        &self.address
+    }
+
+    pub async fn run_probe(&self, socket_factory: &socket::Factory) -> Result<(), Error> {
+        if let Some(_guard) = self.run_lock.try_lock() {
+            self.probe(socket_factory).await
+        } else {
+            Err(Error::OngoingProbeExists)
+        }
     }
 }
 
