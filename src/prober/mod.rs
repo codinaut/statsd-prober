@@ -5,6 +5,8 @@ use futures::lock::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
+use tracing::{info, warn};
+use humantime::format_duration;
 
 pub struct Prober {
     interval: Duration,
@@ -14,6 +16,7 @@ pub struct Prober {
 
 impl Prober {
     pub fn new(configuration: Configuration) -> Self {
+        info!(interval = format_duration(configuration.interval).to_string().as_str(), "Initialize prober");
         Prober {
             interval: configuration.interval,
             jobs: Arc::from(
@@ -21,6 +24,7 @@ impl Prober {
                     .targets
                     .iter()
                     .map(|target| {
+                        info!(address = target.address.as_str(), statsd_key = target.statsd_key.as_str(), "Discover probe target");
                         Mutex::new(job::Job::new(target.address.clone(), &target.statsd_key))
                     })
                     .collect::<Vec<Mutex<job::Job>>>()
@@ -32,9 +36,9 @@ impl Prober {
 
     pub async fn probe_all_periodically(&self) {
         let mut ticker = time::interval(self.interval);
-
         loop {
             ticker.tick().await;
+            info!("Tick");
             self.probe_all().await;
         }
     }
@@ -45,9 +49,14 @@ impl Prober {
             let socket_factory = self.socket_factory.clone();
 
             tokio::task::spawn(async move {
+                info!("Probing");
                 if let Some(job_guard) = &jobs[i].try_lock() {
                     let job = &*job_guard;
-                    job.probe(&socket_factory).await.unwrap();
+                    if let Err(e) = job.probe(&socket_factory).await {
+                        warn!(target_address = job.address(), "Probe error: {}", e);
+                    }
+                } else {
+                    warn!("Skipped a tick")
                 }
             });
         }

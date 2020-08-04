@@ -50,6 +50,10 @@ impl Job {
         Err(Error::LookupHostEmpty)
     }
 
+    pub fn address(&self) -> &str {
+        &self.address
+    }
+
     pub async fn probe(&self, socket_factory: &socket::Factory) -> Result<(), Error> {
         let mut socket_guard = self.resolve(&socket_factory).await?;
         let socket = &mut *socket_guard;

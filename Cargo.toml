@@ -12,6 +12,8 @@ itertools = "0.9.0"
 lazy_futuristic = "1.0.2"
 snafu = "0.6.8"
 tokio = { version = "0.2.22", features = ["full"] }
+tracing = "0.1.18"
+tracing-subscriber = "0.2.10"
 
 [dev-dependencies]
 fake = "2.2.3"
